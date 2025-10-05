@@ -1,0 +1,596 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MindCare AI - Mental Health Support</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: { // Peach/Orange theme
+                DEFAULT: '#f97316', // orange-500
+                light: '#fb923c',   // orange-400
+                dark: '#ea580c',    // orange-600
+              },
+              secondary: '#14b8a6', // teal-500
+              accent: '#f59e0b',    // amber-500
+              light: '#f8fafc',
+            },
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+          },
+        },
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "@google/genai": "https://esm.sh/@google/genai?pin=v64",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/"
+  }
+}
+</script>
+<style>
+  .animate-scale-in {
+    animation: scaleIn 0.3s cubic-bezier(0.165, 0.84, 0.44, 1) forwards;
+  }
+  @keyframes scaleIn {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+</style>
+</head>
+  <body class="bg-slate-50 font-sans">
+    <div id="root"></div>
+    <script type="module">
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import ReactDOM from 'react-dom/client';
+import { GoogleGenAI, Type, Modality } from "@google/genai";
+
+// --- From constants.ts ---
+const DOCTORS = [
+  { id: 1, name: "Dr. Anjali Sharma", specialty: "Psychiatrist", city: "Mumbai", fees: 2000, imageUrl: "https://picsum.photos/id/1027/200/200" },
+  { id: 2, name: "Dr. Vikram Singh", specialty: "Clinical Psychologist", city: "Delhi", fees: 1500, imageUrl: "https://picsum.photos/id/1005/200/200" },
+  { id: 3, name: "Dr. Priya Das", specialty: "Counseling Psychologist", city: "Bangalore", fees: 1200, imageUrl: "https://picsum.photos/id/1011/200/200" },
+  { id: 4, name: "Dr. Sameer Khan", specialty: "Psychiatrist", city: "Delhi", fees: 2200, imageUrl: "https://picsum.photos/id/1012/200/200" },
+  { id: 5, name: "Dr. Meera Iyer", specialty: "Child Psychologist", city: "Mumbai", fees: 1800, imageUrl: "https://picsum.photos/id/1013/200/200" },
+  { id: 6, name: "Dr. Rohan Gupta", specialty: "Clinical Psychologist", city: "Bangalore", fees: 1600, imageUrl: "https://picsum.photos/id/1014/200/200" },
+  { id: 7, name: "Dr. Sneha Patil", specialty: "Counseling Psychologist", city: "Pune", fees: 1100, imageUrl: "https://picsum.photos/id/1015/200/200" },
+  { id: 8, name: "Dr. Arjun Reddy", specialty: "Psychiatrist", city: "Pune", fees: 1900, imageUrl: "https://picsum.photos/id/1016/200/200" },
+  { id: 9, name: "Dr. Aishwarya Bose", specialty: "Psychiatrist", city: "Kolkata", fees: 2100, imageUrl: "https://picsum.photos/id/1018/200/200" },
+  { id: 10, name: "Dr. Rahul Verma", specialty: "Clinical Psychologist", city: "Kolkata", fees: 1700, imageUrl: "https://picsum.photos/id/1019/200/200" },
+  { id: 11, name: "Dr. Kavita Krishnan", specialty: "Counseling Psychologist", city: "Chennai", fees: 1300, imageUrl: "https://picsum.photos/id/1020/200/200" },
+  { id: 12, name: "Dr. Suresh Kumar", specialty: "Child Psychologist", city: "Chennai", fees: 1750, imageUrl: "https://picsum.photos/id/1021/200/200" },
+  { id: 13, name: "Dr. Fatima Ali", specialty: "Psychiatrist", city: "Hyderabad", fees: 2300, imageUrl: "https://picsum.photos/id/1022/200/200" },
+  { id: 14, name: "Dr. Nithin Rao", specialty: "Clinical Psychologist", city: "Hyderabad", fees: 1650, imageUrl: "https://picsum.photos/id/1023/200/200" },
+  { id: 15, name: "Dr. Jignesh Patel", specialty: "Counseling Psychologist", city: "Ahmedabad", fees: 1150, imageUrl: "https://picsum.photos/id/1024/200/200" },
+  { id: 16, name: "Dr. Ritu Singh", specialty: "Psychiatrist", city: "Jaipur", fees: 1850, imageUrl: "https://picsum.photos/id/1025/200/200" },
+  { id: 17, name: "Dr. Alok Nath", specialty: "Clinical Psychologist", city: "Delhi", fees: 1800, imageUrl: "https://picsum.photos/id/1026/200/200" },
+  { id: 18, name: "Dr. Sunita Menon", specialty: "Child Psychologist", city: "Bangalore", fees: 1950, imageUrl: "https://picsum.photos/id/1028/200/200" },
+  { id: 19, name: "Dr. Deepak Chopra", specialty: "Psychiatrist", city: "Mumbai", fees: 2500, imageUrl: "https://picsum.photos/id/1029/200/200" },
+  { id: 20, name: "Dr. Geeta Rao", specialty: "Counseling Psychologist", city: "Pune", fees: 1250, imageUrl: "https://picsum.photos/id/1031/200/200" },
+];
+const CITIES = ["Mumbai", "Delhi", "Bangalore", "Pune", "Kolkata", "Chennai", "Hyderabad", "Ahmedabad", "Jaipur"];
+const SPECIALTIES = ["Psychiatrist", "Clinical Psychologist", "Counseling Psychologist", "Child Psychologist"];
+const UPI_ID = "6387627963@upi";
+
+// --- From services/geminiService.ts ---
+let ai = null;
+const getAiClient = () => {
+  if (!ai) {
+    if (!process.env.API_KEY) {
+        // A placeholder key for environments where it might not be set.
+        // The user is expected to have this configured in their environment.
+        console.warn("API_KEY environment variable not set. Using a placeholder.");
+        ai = new GoogleGenAI({ apiKey: "YOUR_API_KEY_HERE" });
+    } else {
+        ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    }
+  }
+  return ai;
+};
+const getAiAnalysis = async (problem) => {
+  try {
+    const geminiAi = getAiClient();
+    const response = await geminiAi.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `Analyze the following user-described mental health problem and provide guidance. Problem: "${problem}"`,
+      config: {
+        systemInstruction: `You are MindCare AI, a sophisticated AI assistant designed to provide preliminary mental health insights. Your persona is that of an experienced, empathetic Psychiatrist (MBBS, MD). Your communication should be clear, calm, and professional.
+        Your primary objectives are:
+        1.  **Analyze User Input**: Carefully analyze the user's description of their problem.
+        2.  **Assess Severity**: Categorize the potential severity as 'Mild', 'Moderate', 'Severe', or 'Info'. This is a preliminary assessment based purely on the text provided.
+        3.  **Provide Structured Guidance**: Offer safe, non-prescriptive, and actionable self-help strategies. Structure this as a list of 2-3 bullet points. Examples include mindfulness exercises, journaling prompts, or recommendations for establishing a routine. AVOID making medical claims or suggesting treatments.
+        4.  **Recommend Specialists**: Suggest 1-2 relevant specialties (e.g., "Psychiatrist", "Clinical Psychologist", "Counselor").
+        5.  **Maintain Safety and Ethics**: You MUST NOT provide a diagnosis. You must always conclude with the mandatory disclaimer.
+        
+        Your output MUST be in the specified JSON format.
+        - Guidance should be concise and easy to understand for a layperson.
+        - The disclaimer must be the exact text: "This is an AI-generated analysis and not a medical diagnosis. Please consult a qualified doctor for a formal diagnosis and treatment plan."`,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            severity: { type: Type.STRING },
+            guidance: { type: Type.STRING },
+            recommendedSpecialties: { type: Type.ARRAY, items: { type: Type.STRING } },
+            disclaimer: { type: Type.STRING },
+          },
+          required: ["severity", "guidance", "recommendedSpecialties", "disclaimer"],
+        },
+      },
+    });
+    const jsonText = response.text.trim();
+    return JSON.parse(jsonText);
+  } catch (error) {
+    console.error("Error calling Gemini API:", error);
+    throw new Error("Failed to get analysis from AI. Please try again later.");
+  }
+};
+
+// --- From components/icons/Icons.tsx ---
+const BrainCircuitIcon = (props) => React.createElement("svg", { ...props, xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("path", { d: "M12 5a3 3 0 1 0-5.993 1.003c.005 0 .01 0 .015 0A3 3 0 0 0 12 5Z" }), React.createElement("path", { d: "M12 19a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z" }), React.createElement("path", { d: "M12 13a3 3 0 1 0-5.993 1.003c.005 0 .01 0 .015 0A3 3 0 0 0 12 13Z" }), React.createElement("path", { d: "M19 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" }), React.createElement("path", { d: "M11 15.5v-1.05a.5.5 0 0 1 .28-.455L14 12.5" }), React.createElement("path", { d: "M13.5 10.5v-1a.5.5 0 0 0-.28-.455L11 7.5" }), React.createElement("path", { d: "M12 5.5V4a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v1.5" }), React.createElement("path", { d: "M12 18.5V20a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-1.5" }), React.createElement("path", { d: "m4.42 10.45-.01.01" }), React.createElement("path", { d: "m18.58 13.55.01-.01" }));
+const ShieldCheckIcon = (props) => React.createElement("svg", { ...props, xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("path", { d: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" }), React.createElement("path", { d: "m9 12 2 2 4-4" }));
+const SparklesIcon = (props) => React.createElement("svg", { ...props, xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("path", { d: "m12 3-1.9 5.8-5.8 1.9 5.8 1.9L12 18l1.9-5.8 5.8-1.9-5.8-1.9z" }), React.createElement("path", { d: "M5 3v4" }), React.createElement("path", { d: "M19 17v4" }), React.createElement("path", { d: "M3 5h4" }), React.createElement("path", { d: "M17 19h4" }));
+const LightBulbIcon = (props) => React.createElement("svg", { ...props, xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("path", { d: "M15 14c.2-1 .7-1.7 1.5-2.5C17.7 10.2 18 9 18 7c0-2.2-1.8-4-4-4S10 4.8 10 7c0 2 .3 3.2 1.5 4.5.8.8 1.3 1.5 1.5 2.5" }), React.createElement("path", { d: "M9 18h6" }), React.createElement("path", { d: "M10 22h4" }));
+const StethoscopeIcon = (props) => React.createElement("svg", { ...props, xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("path", { d: "M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3" }), React.createElement("path", { d: "M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4" }), React.createElement("circle", { cx: "20", cy: "10", r: "2" }));
+const AlertTriangleIcon = (props) => React.createElement("svg", { ...props, xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("path", { d: "m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" }), React.createElement("path", { d: "M12 9v4" }), React.createElement("path", { d: "M12 17h.01" }));
+const SearchIcon = (props) => React.createElement("svg", { ...props, xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("circle", { cx: "11", cy: "11", r: "8" }), React.createElement("path", { d: "m21 21-4.3-4.3" }));
+const MapPinIcon = (props) => React.createElement("svg", { ...props, xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("path", { d: "M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" }), React.createElement("circle", { cx: "12", cy: "10", r: "3" }));
+const AcademicCapIcon = (props) => React.createElement("svg", { ...props, xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("path", { d: "M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z" }), React.createElement("path", { d: "M22 10v6" }), React.createElement("path", { d: "M6 12.5V16a6 3 0 0 0 12 0v-3.5" }));
+const CurrencyRupeeIcon = (props) => React.createElement("svg", { ...props, xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("path", { d: "M6 3h12" }), React.createElement("path", { d: "M6 8h12" }), React.createElement("path", { d: "m6 13 8.5 8" }), React.createElement("path", { d: "M6 13h3" }), React.createElement("path", { d: "M9 13c6.667 0 6.667-10 0-10" }));
+const CheckCircleIcon = (props) => React.createElement("svg", { ...props, xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("path", { d: "M22 11.08V12a10 10 0 1 1-5.93-9.14" }), React.createElement("polyline", { points: "22 4 12 14.01 9 11.01" }));
+const XMarkIcon = (props) => React.createElement("svg", { ...props, xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor" }, React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M6 18 18 6M6 6l12 12" }));
+const MicrophoneIcon = (props) => React.createElement("svg", { ...props, xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("path", { d: "M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" }), React.createElement("path", { d: "M19 10v2a7 7 0 0 1-14 0v-2" }), React.createElement("line", { x1: "12", x2: "12", y1: "19", y2: "22" }));
+const StopCircleIcon = (props) => React.createElement("svg", { ...props, xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("circle", { cx: "12", cy: "12", r: "10" }), React.createElement("rect", { width: "6", height: "6", x: "9", y: "9" }));
+const UserIcon = (props) => React.createElement("svg", { ...props, xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("path", { d: "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" }), React.createElement("circle", { cx: "12", cy: "7", r: "4" }));
+const BotIcon = (props) => React.createElement("svg", { ...props, xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("path", { d: "M12 8V4H8" }), React.createElement("rect", { width: "16", height: "12", x: "4", y: "8", rx: "2" }), React.createElement("path", { d: "M2 14h2" }), React.createElement("path", { d: "M20 14h2" }), React.createElement("path", { d: "M15 13v2" }), React.createElement("path", { d: "M9 13v2" }));
+const MessageSquareIcon = (props) => React.createElement("svg", { ...props, xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, React.createElement("path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" }));
+
+// --- From components/Loader.tsx ---
+const Loader = () => {
+  return React.createElement("div", { className: "flex flex-col items-center justify-center gap-2" },
+    React.createElement("div", { className: "w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin" }),
+    React.createElement("p", { className: "text-sm text-slate-500" }, "AI is thinking...")
+  );
+};
+
+// --- From components/Header.tsx ---
+const Header = () => {
+  return React.createElement("header", { className: "bg-white shadow-sm sticky top-0 z-50" },
+    React.createElement("div", { className: "container mx-auto max-w-7xl px-4 py-4" },
+      React.createElement("div", { className: "flex items-center justify-between" },
+        React.createElement("div", { className: "flex items-center gap-3" },
+          React.createElement(BrainCircuitIcon, { className: "h-8 w-8 text-primary" }),
+          React.createElement("div", null,
+            React.createElement("h1", { className: "text-2xl font-bold text-slate-800" }, "MindCare AI"),
+            React.createElement("p", { className: "text-sm text-slate-500" }, "Your first step towards mental wellness.")
+          )
+        )
+      ),
+      React.createElement("div", { className: "mt-4 p-3 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800 flex items-start gap-3" },
+        React.createElement(ShieldCheckIcon, { className: "h-5 w-5 mt-0.5 flex-shrink-0" }),
+        React.createElement("p", { className: "text-sm" },
+          React.createElement("strong", null, "Important:"), " The AI provides educational guidance only. It is not a substitute for professional medical advice. Prescriptions and diagnoses are provided exclusively by licensed doctors."
+        )
+      )
+    )
+  );
+};
+
+// --- From components/BookingModal.tsx ---
+const BookingModal = ({ doctor, onClose }) => {
+  const [step, setStep] = useState(1);
+  const handleConfirm = () => setStep(2);
+  const totalFee = doctor.fees;
+  const platformFee = Math.round(totalFee * 0.7);
+  const ourShare = totalFee - platformFee;
+  return React.createElement("div", { className: "fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" },
+    React.createElement("div", { className: "bg-white p-8 rounded-2xl w-full max-w-lg shadow-2xl relative transform transition-all duration-300 ease-out scale-95 animate-scale-in" },
+      React.createElement("button", { onClick: onClose, className: "absolute top-4 right-4 text-slate-400 hover:text-slate-600" },
+        React.createElement(XMarkIcon, { className: "h-6 w-6" })
+      ),
+      step === 1 && React.createElement("div", null,
+        React.createElement("h3", { className: "text-2xl font-bold text-slate-800" }, `Book a session with ${doctor.name}`),
+        React.createElement("p", { className: "mt-2 text-slate-600" }, "Confirm your appointment details and complete the payment to secure your slot."),
+        React.createElement("div", { className: "mt-6 p-4 bg-slate-50 rounded-lg border border-slate-200" },
+          React.createElement("div", { className: "flex justify-between items-center" }, React.createElement("span", { className: "text-slate-600" }, "Consultation Fee"), React.createElement("span", { className: "font-semibold text-slate-800" }, `₹${doctor.fees}`)),
+          React.createElement("div", { className: "flex justify-between items-center mt-2 text-xs text-slate-500" }, React.createElement("span", null, "Doctor's Payout (70%)"), React.createElement("span", null, `₹${platformFee}`)),
+          React.createElement("div", { className: "flex justify-between items-center mt-1 text-xs text-slate-500" }, React.createElement("span", null, "Platform Fee (30%)"), React.createElement("span", null, `₹${ourShare}`))
+        ),
+        React.createElement("div", { className: "mt-6" },
+          React.createElement("label", { className: "text-sm font-medium text-slate-700" }, "Choose a date and time:"),
+          React.createElement("input", { type: "datetime-local", className: "w-full p-2 border border-slate-300 rounded-md mt-1 focus:ring-primary focus:border-primary" })
+        ),
+        React.createElement("div", { className: "mt-8 border-t border-slate-200 pt-6 flex gap-3 justify-end" },
+          React.createElement("button", { onClick: onClose, className: "px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100" }, "Cancel"),
+          React.createElement("button", { onClick: handleConfirm, className: "px-6 py-2 bg-secondary text-white font-semibold rounded-lg shadow-sm hover:opacity-90" }, `Pay ₹${doctor.fees} & Confirm`)
+        )
+      ),
+      step === 2 && React.createElement("div", { className: "text-center py-8" },
+        React.createElement(CheckCircleIcon, { className: "h-16 w-16 text-secondary mx-auto mb-4" }),
+        React.createElement("h3", { className: "text-2xl font-bold text-slate-800" }, "Booking Confirmed!"),
+        React.createElement("p", { className: "mt-2 text-slate-600 max-w-sm mx-auto" }, `Your session with ${doctor.name} is confirmed. A secure Google Meet link and details have been sent to your registered email address.`),
+        React.createElement("button", { onClick: onClose, className: "mt-8 px-6 py-2 bg-primary text-white font-semibold rounded-lg shadow-sm hover:bg-primary-dark" }, "Done")
+      )
+    )
+  );
+};
+
+// --- From components/DoctorCard.tsx ---
+const DoctorCard = ({ doctor, onBook }) => {
+  return React.createElement("div", { className: "bg-slate-50 border border-slate-200 p-4 rounded-xl flex items-center gap-4 transition-all duration-300 hover:shadow-lg hover:border-primary/50 group" },
+    React.createElement("img", { src: doctor.imageUrl, alt: doctor.name, className: "w-20 h-20 rounded-full object-cover border-2 border-white shadow-sm" }),
+    React.createElement("div", { className: "flex-grow" },
+      React.createElement("h4", { className: "font-bold text-slate-800 text-lg" }, doctor.name),
+      React.createElement("div", { className: "text-sm text-slate-600 mt-1 space-y-1" },
+        React.createElement("div", { className: "flex items-center gap-1.5" }, React.createElement(AcademicCapIcon, { className: "w-4 h-4 text-primary" }), React.createElement("span", null, doctor.specialty)),
+        React.createElement("div", { className: "flex items-center gap-1.5" }, React.createElement(MapPinIcon, { className: "w-4 h-4 text-primary" }), React.createElement("span", null, doctor.city)),
+        React.createElement("div", { className: "flex items-center gap-1.5" }, React.createElement(CurrencyRupeeIcon, { className: "w-4 h-4 text-primary" }), React.createElement("span", { className: "font-medium" }, `${doctor.fees} / session`))
+      )
+    ),
+    React.createElement("button", { onClick: () => onBook(doctor), className: "self-end px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-primary-dark transition-all transform group-hover:scale-105" }, "Book")
+  );
+};
+
+// --- From components/DoctorSearch.tsx ---
+const DoctorSearch = ({ doctors, onBookDoctor }) => {
+  const [city, setCity] = useState('');
+  const [specialty, setSpecialty] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const filteredDoctors = useMemo(() => {
+    return doctors.filter(doc =>
+      (city ? doc.city === city : true) &&
+      (specialty ? doc.specialty === specialty : true) &&
+      (searchTerm ? doc.name.toLowerCase().includes(searchTerm.toLowerCase()) : true)
+    );
+  }, [doctors, city, specialty, searchTerm]);
+  return React.createElement("div", { className: "bg-white p-6 rounded-2xl shadow-lg sticky top-32" },
+    React.createElement("div", { className: "flex items-center gap-3 mb-4" },
+      React.createElement(SearchIcon, { className: "h-7 w-7 text-primary" }),
+      React.createElement("h2", { className: "text-2xl font-bold text-slate-800" }, "Find a Doctor")
+    ),
+    React.createElement("div", { className: "relative mb-4" },
+      React.createElement(SearchIcon, { className: "absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" }),
+      React.createElement("input", { type: "text", placeholder: "Search by doctor's name...", value: searchTerm, onChange: e => setSearchTerm(e.target.value), className: "w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md focus:ring-primary focus:border-primary transition" })
+    ),
+    React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6" },
+      React.createElement("div", null,
+        React.createElement("label", { htmlFor: "city-select", className: "block text-sm font-medium text-slate-700" }, "City"),
+        React.createElement("select", { id: "city-select", value: city, onChange: e => setCity(e.target.value), className: "mt-1 block w-full pl-3 pr-10 py-2 text-base border-slate-300 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md" },
+          React.createElement("option", { value: "" }, "All Cities"),
+          CITIES.map(c => React.createElement("option", { key: c, value: c }, c))
+        )
+      ),
+      React.createElement("div", null,
+        React.createElement("label", { htmlFor: "specialty-select", className: "block text-sm font-medium text-slate-700" }, "Specialty"),
+        React.createElement("select", { id: "specialty-select", value: specialty, onChange: e => setSpecialty(e.target.value), className: "mt-1 block w-full pl-3 pr-10 py-2 text-base border-slate-300 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md" },
+          React.createElement("option", { value: "" }, "All Specialties"),
+          SPECIALTIES.map(s => React.createElement("option", { key: s, value: s }, s))
+        )
+      )
+    ),
+    React.createElement("div", { className: "space-y-4 max-h-[55vh] overflow-y-auto pr-2" },
+      filteredDoctors.length > 0 ? (
+        filteredDoctors.map(doc => React.createElement(DoctorCard, { key: doc.id, doctor: doc, onBook: onBookDoctor }))
+      ) : (
+        React.createElement("div", { className: "text-center py-8 text-slate-500" },
+          React.createElement("p", null, "No doctors found matching your criteria.")
+        )
+      )
+    )
+  );
+};
+
+// --- From components/VoiceAnalysis.tsx ---
+function decode(base64) {
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
+}
+function encode(bytes) {
+    let binary = '';
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+}
+async function decodeAudioData(data, ctx, sampleRate, numChannels) {
+    const dataInt16 = new Int16Array(data.buffer);
+    const frameCount = dataInt16.length / numChannels;
+    const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+    for (let channel = 0; channel < numChannels; channel++) {
+        const channelData = buffer.getChannelData(channel);
+        for (let i = 0; i < frameCount; i++) {
+            channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+        }
+    }
+    return buffer;
+}
+function createBlob(data) {
+    const l = data.length;
+    const int16 = new Int16Array(l);
+    for (let i = 0; i < l; i++) {
+        int16[i] = data[i] * 32768;
+    }
+    return {
+        data: encode(new Uint8Array(int16.buffer)),
+        mimeType: 'audio/pcm;rate=16000',
+    };
+}
+const VoiceAnalysis = () => {
+    const [isSessionActive, setIsSessionActive] = useState(false);
+    const [statusMessage, setStatusMessage] = useState('Click the microphone to start a conversation.');
+    const [transcriptions, setTranscriptions] = useState([]);
+    const sessionPromiseRef = useRef(null);
+    const inputAudioContextRef = useRef(null);
+    const outputAudioContextRef = useRef(null);
+    const mediaStreamRef = useRef(null);
+    const scriptProcessorRef = useRef(null);
+    const outputSourcesRef = useRef(new Set());
+    const nextStartTimeRef = useRef(0);
+    const currentInputTranscriptionRef = useRef('');
+    const currentOutputTranscriptionRef = useRef('');
+    const stopSession = useCallback(async () => {
+        setIsSessionActive(false);
+        setStatusMessage('Session ended. Click to start again.');
+        if (sessionPromiseRef.current) {
+            const session = await sessionPromiseRef.current;
+            session.close();
+            sessionPromiseRef.current = null;
+        }
+        if (scriptProcessorRef.current) {
+            scriptProcessorRef.current.disconnect();
+            scriptProcessorRef.current = null;
+        }
+        if (mediaStreamRef.current) {
+            mediaStreamRef.current.getTracks().forEach(track => track.stop());
+            mediaStreamRef.current = null;
+        }
+        if (inputAudioContextRef.current && inputAudioContextRef.current.state !== 'closed') {
+            await inputAudioContextRef.current.close();
+        }
+        if (outputAudioContextRef.current && outputAudioContextRef.current.state !== 'closed') {
+            await outputAudioContextRef.current.close();
+        }
+        outputSourcesRef.current.forEach(source => source.stop());
+        outputSourcesRef.current.clear();
+        nextStartTimeRef.current = 0;
+    }, []);
+    const startSession = async () => {
+        setTranscriptions([]);
+        setStatusMessage('Connecting...');
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaStreamRef.current = stream;
+            setIsSessionActive(true);
+            setStatusMessage('Listening... Speak now.');
+            const ai = getAiClient();
+            inputAudioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+            outputAudioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+            sessionPromiseRef.current = ai.live.connect({
+                model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+                callbacks: {
+                    onopen: () => {
+                        const source = inputAudioContextRef.current.createMediaStreamSource(mediaStreamRef.current);
+                        const scriptProcessor = inputAudioContextRef.current.createScriptProcessor(4096, 1, 1);
+                        scriptProcessorRef.current = scriptProcessor;
+                        scriptProcessor.onaudioprocess = (audioProcessingEvent) => {
+                            const inputData = audioProcessingEvent.inputBuffer.getChannelData(0);
+                            const pcmBlob = createBlob(inputData);
+                            sessionPromiseRef.current?.then((session) => {
+                                session.sendRealtimeInput({ media: pcmBlob });
+                            });
+                        };
+                        source.connect(scriptProcessor);
+                        scriptProcessor.connect(inputAudioContextRef.current.destination);
+                    },
+                    onmessage: async (message) => {
+                        if (message.serverContent?.inputTranscription) {
+                            currentInputTranscriptionRef.current += message.serverContent.inputTranscription.text;
+                        }
+                        if (message.serverContent?.outputTranscription) {
+                            currentOutputTranscriptionRef.current += message.serverContent.outputTranscription.text;
+                        }
+                        if (message.serverContent?.turnComplete) {
+                            const userInput = currentInputTranscriptionRef.current.trim();
+                            const modelOutput = currentOutputTranscriptionRef.current.trim();
+                            setTranscriptions(prev => {
+                                let newHistory = [...prev];
+                                if (userInput) newHistory.push({ author: 'user', text: userInput });
+                                if (modelOutput) newHistory.push({ author: 'model', text: modelOutput });
+                                return newHistory;
+                            });
+                            currentInputTranscriptionRef.current = '';
+                            currentOutputTranscriptionRef.current = '';
+                        }
+                        const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData.data;
+                        if (base64Audio && outputAudioContextRef.current) {
+                            nextStartTimeRef.current = Math.max(nextStartTimeRef.current, outputAudioContextRef.current.currentTime);
+                            const audioBuffer = await decodeAudioData(decode(base64Audio), outputAudioContextRef.current, 24000, 1);
+                            const source = outputAudioContextRef.current.createBufferSource();
+                            source.buffer = audioBuffer;
+                            source.connect(outputAudioContextRef.current.destination);
+                            source.addEventListener('ended', () => outputSourcesRef.current.delete(source));
+                            source.start(nextStartTimeRef.current);
+                            nextStartTimeRef.current += audioBuffer.duration;
+                            outputSourcesRef.current.add(source);
+                        }
+                    },
+                    onerror: (e) => {
+                        console.error('Session error:', e);
+                        setStatusMessage('An error occurred. Please try again.');
+                        stopSession();
+                    },
+                    onclose: () => console.log('Session closed.'),
+                },
+                config: {
+                    responseModalities: [Modality.AUDIO],
+                    inputAudioTranscription: {},
+                    outputAudioTranscription: {},
+                    systemInstruction: 'You are MindCare AI, an empathetic and supportive mental health assistant. Keep your responses concise, warm, and encouraging.',
+                },
+            });
+        } catch (err) {
+            console.error("Failed to get media devices.", err);
+            setStatusMessage('Microphone access denied. Please allow microphone access in your browser settings.');
+            setIsSessionActive(false);
+        }
+    };
+    useEffect(() => {
+        return () => stopSession();
+    }, [stopSession]);
+    const handleToggleSession = () => isSessionActive ? stopSession() : startSession();
+    return React.createElement("div", null,
+        React.createElement("div", { className: "flex flex-col items-center justify-center gap-4" },
+            React.createElement("button", { onClick: handleToggleSession, className: `relative flex items-center justify-center w-24 h-24 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${isSessionActive ? 'bg-red-500 text-white' : 'bg-primary text-white'}` },
+                isSessionActive && React.createElement("span", { className: "absolute inset-0 bg-red-400 rounded-full animate-ping" }),
+                isSessionActive ? React.createElement(StopCircleIcon, { className: "w-12 h-12" }) : React.createElement(MicrophoneIcon, { className: "w-12 h-12" })
+            ),
+            React.createElement("p", { className: "text-sm text-slate-500 h-5" }, statusMessage)
+        ),
+        React.createElement("div", { className: "mt-6 h-96 bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-4 overflow-y-auto" },
+            transcriptions.length === 0 ? React.createElement("div", { className: "flex items-center justify-center h-full text-slate-400" }, React.createElement("p", null, "Conversation transcript will appear here.")) :
+            transcriptions.map((t, i) => React.createElement("div", { key: i, className: `flex items-start gap-3 ${t.author === 'user' ? 'justify-end' : ''}` },
+                t.author === 'model' && React.createElement("div", { className: "flex-shrink-0 w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center" }, React.createElement(BotIcon, { className: "w-5 h-5" })),
+                React.createElement("div", { className: `max-w-md p-3 rounded-xl ${t.author === 'user' ? 'bg-orange-100 text-slate-800 rounded-br-none' : 'bg-slate-200 text-slate-800 rounded-bl-none'}` }, React.createElement("p", null, t.text)),
+                t.author === 'user' && React.createElement("div", { className: "flex-shrink-0 w-8 h-8 rounded-full bg-slate-600 text-white flex items-center justify-center" }, React.createElement(UserIcon, { className: "w-5 h-5" }))
+            ))
+        )
+    );
+};
+
+// --- From components/AiAnalysis.tsx ---
+const TabButton = ({ isActive, onClick, children }) => React.createElement("button", { onClick, className: `flex items-center justify-center px-6 py-3 font-semibold text-sm rounded-t-lg transition-colors duration-200 focus:outline-none ${isActive ? 'bg-white text-primary border-b-2 border-primary' : 'bg-transparent text-slate-500 hover:bg-slate-100'}`, role: "tab", "aria-selected": isActive }, children);
+
+const AiAnalysis = () => {
+  const [activeTab, setActiveTab] = useState('text');
+  const [problem, setProblem] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+
+  const handleAnalyze = async () => {
+    if (!problem.trim()) {
+      setError("Please describe your problem before analyzing.");
+      return;
+    }
+    setLoading(true);
+    setResult(null);
+    setError(null);
+    try {
+      const analysisResult = await getAiAnalysis(problem);
+      setResult(analysisResult);
+    } catch (e) {
+      setError(e.message || "An unexpected error occurred.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const severityStyles = {
+    Mild: 'bg-green-100 text-green-800 border-green-200',
+    Moderate: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+    Severe: 'bg-red-100 text-red-800 border-red-200',
+    Info: 'bg-blue-100 text-blue-800 border-blue-200',
+  };
+
+  return React.createElement("div", { className: "bg-white p-6 rounded-2xl shadow-lg" },
+    React.createElement("div", { className: "flex border-b border-slate-200" },
+      React.createElement(TabButton, { isActive: activeTab === 'text', onClick: () => setActiveTab('text') },
+        React.createElement(MessageSquareIcon, { className: "h-5 w-5 mr-2" }), "Text Analysis"),
+      React.createElement(TabButton, { isActive: activeTab === 'voice', onClick: () => setActiveTab('voice') },
+        React.createElement(MicrophoneIcon, { className: "h-5 w-5 mr-2" }), "Voice Assistant")
+    ),
+    React.createElement("div", { className: "pt-6" },
+      activeTab === 'text' && React.createElement(React.Fragment, null,
+        React.createElement("div", { className: "flex items-center gap-3 mb-4" },
+          React.createElement(SparklesIcon, { className: "h-7 w-7 text-primary" }),
+          React.createElement("h2", { className: "text-2xl font-bold text-slate-800" }, "Get AI-Powered Guidance")
+        ),
+        React.createElement("p", { className: "text-slate-600 mb-4" }, "Describe how you're feeling, your symptoms, and any concerns you have. Our AI will provide a confidential, preliminary analysis to help you understand your situation better."),
+        React.createElement("textarea", { value: problem, onChange: (e) => setProblem(e.target.value), placeholder: "For example: 'I've been feeling constantly tired and have lost interest in my hobbies for the past few weeks...'", className: "w-full h-48 p-3 border border-slate-300 rounded-lg resize-none focus:ring-2 focus:ring-primary focus:border-primary transition duration-200", disabled: loading }),
+        React.createElement("div", { className: "mt-4 flex items-center gap-4" },
+          React.createElement("button", { onClick: handleAnalyze, className: "px-6 py-3 bg-primary text-white font-semibold rounded-lg shadow-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-light transition-transform transform hover:scale-105 disabled:bg-slate-400 disabled:cursor-not-allowed disabled:scale-100", disabled: loading }, loading ? "Analyzing..." : "Analyze My Problem"),
+          React.createElement("button", { onClick: () => { setProblem(''); setResult(null); setError(null); }, className: "px-4 py-2 text-slate-600 hover:text-slate-900", disabled: loading }, "Clear")
+        ),
+        error && React.createElement("div", { className: "mt-4 text-red-600 bg-red-50 p-3 rounded-lg" }, error),
+        React.createElement("div", { className: "mt-6" },
+          React.createElement("h3", { className: "text-lg font-semibold text-slate-700" }, "Analysis Result"),
+          React.createElement("div", { className: "mt-2 p-4 rounded-lg border border-slate-200 bg-slate-50 min-h-[200px] flex items-center justify-center" },
+            loading ? React.createElement(Loader, null) : !result ? React.createElement("div", { className: "text-center text-slate-500" }, React.createElement("p", null, "Your AI analysis will appear here.")) : React.createElement("div", { className: "w-full space-y-4" },
+              React.createElement("div", { className: `px-3 py-1 text-sm font-medium inline-block rounded-full ${severityStyles[result.severity]}` }, `Severity Assessment: ${result.severity}`),
+              React.createElement("div", { className: "flex items-start gap-3" },
+                React.createElement(LightBulbIcon, { className: "h-6 w-6 text-accent flex-shrink-0 mt-1" }),
+                React.createElement("div", null, React.createElement("h4", { className: "font-semibold text-slate-800" }, "Suggested Guidance"), React.createElement("p", { className: "text-slate-600" }, result.guidance))
+              ),
+              React.createElement("div", { className: "flex items-start gap-3" },
+                React.createElement(StethoscopeIcon, { className: "h-6 w-6 text-secondary flex-shrink-0 mt-1" }),
+                React.createElement("div", null, React.createElement("h4", { className: "font-semibold text-slate-800" }, "Recommended Professionals"), React.createElement("p", { className: "text-slate-600" }, result.recommendedSpecialties.join(', ')))
+              ),
+              React.createElement("div", { className: "p-3 rounded-md bg-yellow-50 border border-yellow-200 text-yellow-800 flex items-start gap-3 text-sm" },
+                React.createElement(AlertTriangleIcon, { className: "h-5 w-5 mt-0.5 flex-shrink-0" }),
+                React.createElement("p", null, result.disclaimer)
+              )
+            )
+          )
+        )
+      ),
+      activeTab === 'voice' && React.createElement(VoiceAnalysis, null)
+    )
+  );
+};
+
+// --- From App.tsx ---
+function App() {
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const handleBookDoctor = (doctor) => setSelectedDoctor(doctor);
+  const handleCloseModal = () => setSelectedDoctor(null);
+
+  return React.createElement("div", { className: "min-h-screen bg-light" },
+    React.createElement(Header, null),
+    React.createElement("main", { className: "container mx-auto max-w-7xl px-4 py-8" },
+      React.createElement("div", { className: "grid grid-cols-1 lg:grid-cols-5 gap-8" },
+        React.createElement("div", { className: "lg:col-span-3" }, React.createElement(AiAnalysis, null)),
+        React.createElement("div", { className: "lg:col-span-2" }, React.createElement(DoctorSearch, { doctors: DOCTORS, onBookDoctor: handleBookDoctor }))
+      )
+    ),
+    React.createElement("footer", { className: "text-center py-6 mt-8 border-t border-slate-200" },
+      React.createElement("p", { className: "text-xs text-slate-500 max-w-4xl mx-auto px-4" },
+        `© ${new Date().getFullYear()} MindCare AI — Prototype. This platform is for informational purposes only. Always consult a qualified medical professional for diagnosis and treatment. Ensure compliance with all medical, legal, and privacy regulations before use with real patients.`
+      )
+    ),
+    selectedDoctor && React.createElement(BookingModal, { doctor: selectedDoctor, onClose: handleCloseModal })
+  );
+}
+
+// --- From index.tsx ---
+const rootElement = document.getElementById('root');
+if (!rootElement) {
+  throw new Error("Could not find root element to mount to");
+}
+const root = ReactDOM.createRoot(rootElement);
+root.render(
+  React.createElement(React.StrictMode, null, React.createElement(App, null))
+);
+
+    </script>
+  </body>
+</html>
